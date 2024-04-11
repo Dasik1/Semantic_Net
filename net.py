@@ -39,8 +39,17 @@ class NET:
             return str(self.vertexies)
         elif format_spec == "edge":
             return str(self.edges)
-        
     
+    def postformat(self, pack):
+        ans = []
+        for i in pack:
+            ans.append(((self.vertex_connection[i["vertex"]].name,
+                         self.vertex_connection[i["vertex"]].properties),
+                        i["quantor"]))
+        return ans
+        
+    def disconnect(self):
+        del self.UID_
     
     
     def add_vertex(self, vert):
@@ -66,36 +75,8 @@ class NET:
                            "quantor": edge.quantor}
         self.vertexies[t]["to"].append({"uid":uid, "vertex":f})
         self.vertexies[f]["from"].append({"uid":uid,"vertex":t})
-    
-    
-    def answer(self, request):
-        #request == "from":<f>,"edge":<e>,"to":<t>
-        #where: f,t - Vertexies or ids
-        #no string because of properties
-        
-        
-        #check(t, e, t)
-        #if not -> execute for all <q> <- ping(f, <inherit>, "from") == для всех предков
-        #-> check(q, e, t) -- exist -> return
-        #                   \ not -> No ........ | try to get from children
-        
-        
-        if type(request["from"]) is Vertex:request["from"] = self.get_fromVertex(request["from"])
-        if type(request["to"]) is Vertex:request["to"] = self.get_fromVertex(request["to"])
-        
-        ans = []
-        try_uid = [request['from']]
-        
-        
-        for uid in try_uid:
-            ans_uid = self.check(uid, request["edge"], request["to"])
-            if ans_uid is not None: ans.append(ans_uid)
             
-            for _ in self.ping(uid,self.inherit_edges):try_uid.append(_['vertex'])
-        
-        return False if ans == [] else True
-            
-            
+                   
         
         
     def get_fromVertex(self, vert):
@@ -134,6 +115,39 @@ class NET:
         
         while None in edges:edges.remove(None)
         return edges
+    
+    
+    
+    def answerYN(self, request):
+        #request == "from":<f>,"edge":<e>,"to":<t>
+        #where: f,t - Vertexies or ids
+        #no string because of properties
+        
+        
+        #check(t, e, t)
+        #if not -> execute for all <q> <- ping(f, <inherit>, "from") == для всех предков
+        #-> check(q, e, t) -- exist -> return
+        #                   \ not -> No ........ | try to get from children
+        
+        
+        if type(request["from"]) is Vertex:request["from"] = self.get_fromVertex(request["from"])
+        if type(request["to"]) is Vertex:request["to"] = self.get_fromVertex(request["to"])
+        
+        ans = []
+        try_uid = [request['from']]
+        
+        
+        for uid in try_uid:
+            ans_uid = self.check(uid, request["edge"], request["to"])
+            if ans_uid is not None: ans.append(ans_uid)
+            
+            for _ in self.ping(uid,self.inherit_edges):try_uid.append(_['vertex'])
+        
+        return False if ans == [] else True
+    
+    def answerTYPE(self, vertex, postformat = True):
+        ans = self.ping(vertex, "is a", "to")
+        
+        return self.postformat(ans) if postformat else ans
 
-    def disconnect(self):
-        del self.UID_
+    
