@@ -13,7 +13,7 @@ from vertex import Vertex
 from edge import Edge  
 
 from UID import UID
-UID_ = UID()
+
 
 class NET:
     
@@ -28,6 +28,7 @@ class NET:
         
         self.inherit_edges = ["is a"]
         self.upherit_edges = ["has"]
+        self.UID_ = UID()
     
     def __format__(self, format_spec):
         if format_spec == "vc":
@@ -47,7 +48,7 @@ class NET:
         if vert in self.vertex_connection.values():
             return
         
-        self.vertex_connection[(uid := UID_.get())] = vert
+        self.vertex_connection[(uid := self.UID_.get())] = vert
         self.vertexies[uid] = {"from":[], "to":[]}
         return uid
     
@@ -57,7 +58,7 @@ class NET:
         if edge in self.edge_connection.values():
             return
         
-        self.edge_connection[(uid := UID_.get())] = edge
+        self.edge_connection[(uid := self.UID_.get())] = edge
         
         self.edges[uid] = {"type":edge.name,
                            "from": (f:=edge.f),
@@ -134,27 +135,5 @@ class NET:
         while None in edges:edges.remove(None)
         return edges
 
-Net = NET()
-
-bird = Net.add_vertex(Vertex("bird"))
-wing = Net.add_vertex(Vertex("wing"))
-Net.add_edge(Edge('has', bird, wing, {"quantor":"most"}))
-
-feather = Net.add_vertex(Vertex("feather"))
-Net.add_edge(Edge("has", wing, feather)) #quantor all is default
-
-seagull = Net.add_vertex(Vertex("seagull"))
-Net.add_edge(Edge("is a", seagull, bird, {'quantor':"all"}))
-
-animal = Net.add_vertex(Vertex("animal"))
-Net.add_edge(Edge("is a", bird, animal, {'quantor':"all"}))
-
-heart = Net.add_vertex(Vertex("heart"))
-Net.add_edge(Edge("has", animal, heart, {'quantor':"all"}))
-
-
-print(Net.answer({"from":6,
-                  "edge":"has",
-                  "to":10
-                  }))
-del UID_
+    def disconnect(self):
+        del self.UID_
