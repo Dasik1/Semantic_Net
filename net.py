@@ -3,151 +3,173 @@
 
 Running in Tim Industries
 
-Created in March 2024
+Created on Wed Apr 24 11:54:27 2024
 in Tims II Lab
 
 @author: Stark
 """
 
-from vertex import Vertex
-from edge import Edge  
-
 from UID import UID
+from multipledispatch import dispatch
 
 
-class NET:
+
+class Net:
     
     def __init__(self):
-        #net
-        self.edges = {}
-        self.vertexies = {}
         
-        #connections
-        self.edge_connection = {}
-        self.vertex_connection = {}
+        self.vertex = {} #v[id] = {name, <_>} to identify
+        self.vertex_connection = {} #{[outgoing], [incoming], [related_properties]}
         
-        self.inherit_edges = ["is a"]
+        self.properties = {} #p[id] = {name, related <_>}
+        self.property_connection = {} #p[id] = {"caller":saved_property}
+        
+        
+        self.edges = {} #e[id] = {name, <_>, from, to}
+        
+        self.inherit_edges = ["is a"] #edges that allows to inherit properties
         self.upherit_edges = ["has"]
+    
         self.UID_ = UID()
-    
-    def __format__(self, format_spec):
-        if format_spec == "vc":
-            return str(self.vertex_connection)
-        elif format_spec == "ec":
-            return str(self.edge_connection)
-        elif format_spec == "vertex":
-            return str(self.vertexies)
-        elif format_spec == "edge":
-            return str(self.edges)
-    
-    def postformat(self, pack):
-        ans = []
-        for i in pack:
-            ans.append(((self.vertex_connection[i["vertex"]].name,
-                         self.vertex_connection[i["vertex"]].properties),
-                        i["quantor"]))
-        return ans
         
-    def disconnect(self):
-        del self.UID_
-    
-    
-    def add_vertex(self, vert):
-        
-        if vert in self.vertex_connection.values():
-            return
-        
-        self.vertex_connection[(uid := self.UID_.get())] = vert
-        self.vertexies[uid] = {"from":[], "to":[]}
-        return uid
-    
-    
-    
-    def add_edge(self, edge):
-        if edge in self.edge_connection.values():
-            return
-        
-        self.edge_connection[(uid := self.UID_.get())] = edge
-        
-        self.edges[uid] = {"type":edge.name,
-                           "from": (f:=edge.f),
-                           "to": (t:=edge.t),
-                           "quantor": edge.quantor}
-        self.vertexies[t]["to"].append({"uid":uid, "vertex":f})
-        self.vertexies[f]["from"].append({"uid":uid,"vertex":t})
-            
-                   
-        
-        
-    def get_fromVertex(self, vert):
-        for i in self.vertex_connection.keys():
-            v=self.vertex_connection[i]
-            if vert==v: return i
-    
-    def check(self, from_,  type_, to, quantor = "all"):
-        for i in self.edges.keys():
-            if self.edges[i] == {"from":from_, "type":type_, "to":to, "quantor":quantor}:
-                return i
-        return None
-    
-    def ping(self, vertex, type_, destination="from", quantor=None):
-        '''check if vertex has this edge from it'''
-        '''вернуть все исходящие ребра <edge_type> типа'''
-        if type(type_) is list:
-            ans = []
-            for i in type_:
-                for _ in self.ping(vertex,i,destination,quantor):
-                    ans.append(_)
-                    return ans
-        
-        if type(vertex) is Vertex: vertex = self.get_fromVertex(vertex)
-        
-        
-        edges = [x["uid"] for x in self.vertexies[vertex][destination]]
-        
-        edges = [self.edges[e] for e in edges]
-        
-        destination = "from" if destination == "to" else "to"
-        
-        edges = [{"vertex":x[destination], "quantor":x["quantor"] }
-                        if x["type"] == type_ else None 
-                    for x in edges]
-        
-        while None in edges:edges.remove(None)
-        return edges
-    
-    
-    
-    def answerYN(self, request):
-        #request == "from":<f>,"edge":<e>,"to":<t>
-        #where: f,t - Vertexies or ids
-        #no string because of properties
-        
-        
-        #check(t, e, t)
-        #if not -> execute for all <q> <- ping(f, <inherit>, "from") == для всех предков
-        #-> check(q, e, t) -- exist -> return
-        #                   \ not -> No ........ | try to get from children
-        
-        
-        if type(request["from"]) is Vertex:request["from"] = self.get_fromVertex(request["from"])
-        if type(request["to"]) is Vertex:request["to"] = self.get_fromVertex(request["to"])
-        
-        ans = []
-        try_uid = [request['from']]
-        
-        
-        for uid in try_uid:
-            ans_uid = self.check(uid, request["edge"], request["to"])
-            if ans_uid is not None: ans.append(ans_uid)
-            
-            for _ in self.ping(uid,self.inherit_edges):try_uid.append(_['vertex'])
-        
-        return False if ans == [] else True
-    
-    def answerTYPE(self, vertex, postformat = True):
-        ans = self.ping(vertex, "is a", "to")
-        
-        return self.postformat(ans) if postformat else ans
 
+    def disconnect(self):del self.UID_ #spyder joke)
     
+    def add_Vertex(self, name, _desc = None) -> int:
+        
+        pack = {"name":name, "desc":_desc}
+        
+        if pack in self.vertex.values():
+            return None
+        
+        self.vertex[(q:=self.UID_.get())] = pack
+        self.vertex_connection[q] = {"outgoing":[], "incoming":[], "properties":[]}
+        return q
+    
+    
+    def add_Edge(self, from_v:int, name, to_v:int, _desc = None) -> int:
+        
+        pack = {"name":name,
+                "from":from_v,
+                "to"  :to_v,
+                "desc": _desc}
+        
+        if pack in self.edges.values():
+            return None
+        
+        
+        self.edges[(q:=self.UID_.get())] = pack
+        self.vertex_connection[from_v]['outgoing'].append({"id":q,"to":to_v})
+        self.vertex_connection[to_v]['incoming'].append({"id":q,"from":from_v})
+        return q
+    
+    
+    def add_Property(self, name, related_v:int, _desc = None):
+        
+        pack = {"name":name, "related":related_v, "desc":_desc}
+        
+        if pack in self.properties.values():
+            return None
+        
+        self.properties[(q:=self.UID_.get())] = pack
+        self.vertex_connection[related_v]['properties'].append(q)
+        self.property_connection[q] = {}
+        return q
+    
+    
+    #@dispatch(int, int, int)
+    def add_Property_value(self, property_id:int, caller:int, property_val_id:int):
+        
+        self.property_connection[property_id][caller] = property_val_id
+    
+    
+    def find(self, Vertex_name:str, _desc = None):
+        
+        for i in self.vertex.keys():
+            if Vertex_name == self.vertex[i]["name"] and _desc == self.vertex[i]["desc"]:
+                return i
+        
+    def check(self, v1, v2):
+        v = self.vertex_connection[v1]
+        og, ig, _ = v['outgoing'], v['incoming'], v['properties']
+        
+        for i in og:
+            if i["to"] == v2:return self.edges[i["id"]]
+        for i in ig:
+            if i["from"] == v2:return self.edges[i["id"]]
+        
+        return {"name":None}
+            
+    
+    
+    def ping(self, vert, edge, father = True) -> int or None:
+        
+        v = self.vertex_connection[vert]
+        og, ig, _ = v['outgoing'], v['incoming'], v['properties']
+        ans = []
+        if father:
+            for i in og:
+                if self.edges[i['id']]['name'] == edge:
+                    ans.append(self.edges[i['id']]['to'])
+            return ans
+        elif father is False:
+            for i in ig:
+                if self.edges[i['id']]['name'] == edge:
+                    ans.append(self.edges[i['id']]['from'])
+            return ans
+          
+    
+    
+    def get_Connection(self, v1, v2, await_edge:str,  hist=[]):
+        hist.append(v1)
+        
+        edge = self.check(v1, v2) #Edge or {name:None}
+        
+        if await_edge in [edge["name"], ""]:
+            hist.append(v2)
+            return hist
+        if await_edge in ["?", "what"] and edge["name"] is not None:
+            hist.append(v2)
+            return hist, edge
+        
+        for child in self.inherit_edges:
+            for try_v in self.ping(v1, child): #-> [Vertex]
+                if try_v is not None:
+                    return self.get_Connection(try_v, v2, await_edge)
+        
+        return None
+                
+                    
+        
+        
+        
+    
+    def get_Property(self, obj, atribute, property_name): 
+        '''
+        color seagull wing
+        input: <from where|seagull> <atribute|wing> <prop|color>
+        
+        get from seagull to wing -->> [seagull, bird, wing] | [obj...atr]
+        
+        recieve property name - p
+        
+        check for first p([obj..atr])
+        '''
+        
+        hist = self.get_Connection(obj, atribute, "")
+        
+        #get all connected prop
+        
+        all_prop = self.vertex_connection[atribute]['properties']
+        
+        to_check = []
+        for i in all_prop:
+            if self.properties[i]['name'] == property_name:
+                to_check.append(i)
+        
+        for i in to_check:
+            for caller in hist:
+                if caller in self.property_connection[i]:
+                    return self.property_connection[i][caller]
+    
+    #last two answer questions
